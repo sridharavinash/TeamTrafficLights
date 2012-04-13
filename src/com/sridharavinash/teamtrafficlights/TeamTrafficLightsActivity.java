@@ -33,9 +33,10 @@ import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.InputMethodManager;
@@ -55,6 +56,7 @@ public class TeamTrafficLightsActivity extends Activity {
 	EditText teamCityUrl;
 	EditText teamCityUser;
 	EditText teamCityPass;
+	
 	
 	// Button Listener
 	private OnClickListener connectListener = new OnClickListener(){
@@ -96,122 +98,46 @@ public class TeamTrafficLightsActivity extends Activity {
 	}
 
 	/**Make a call to the server with credentials and get a response */
-	private void getResponse(String url, String user, String pass,String restPath){
-		HttpHost targetHost = new HttpHost(url, 80, "http");
-		
-		HttpClient httpClient = new DefaultHttpClient();
-		
-		((AbstractHttpClient) httpClient).getCredentialsProvider().setCredentials(
-				new AuthScope(targetHost.getHostName(),targetHost.getPort()), 
-				new UsernamePasswordCredentials(user,pass));
-		
-		
-		HttpGet httpGet = new HttpGet("http://"+url+ restPath);
-		HttpResponse httpResponse;
+	private void getResponse(final String url, final String user, final String pass,final String restPath){
+
 		try{
-			httpResponse = httpClient.execute(httpGet);
-			StringBuilder resp = inputStreamToString(httpResponse.getEntity().getContent());
-			
-			
-			if(restPath.contains(RESTBUILDTYPEPATH)){
-				ArrayList<TeamCityBuilds> respXml = (ArrayList<TeamCityBuilds>) ParseXMLResponse(resp, new BuildsDataHandler());
-				showBuildNameList(respXml);
-			}
-			else if(restPath.contains(RESTPROJECTSPATH)){
-				ArrayList<TeamCityProject> respXml = (ArrayList<TeamCityProject>) ParseXMLResponse(resp, new TCDataHandler());
-				showProjectList(respXml);
-			}else{
-				//gets you build name and status information
-				ArrayList<TeamCityBuilds> respXml = (ArrayList<TeamCityBuilds>) ParseXMLResponse(resp, new BuildsDataHandler());
-				showBuildStatusList(respXml);
-			}
+				HttpHost targetHost = new HttpHost(url, 80, "http");
 				
-			
-		}catch (ClientProtocolException e){
-			e.printStackTrace();
-			showAlertDialog("Oh Oh! We are having trouble connecting to the server with those credentials! Please recheck your url, username and password.");		   
-		} catch (IOException e) {
-			e.printStackTrace();
-			showAlertDialog("Oh Oh! We are having trouble connecting to the server with those credentials! Please recheck your url, username and password.");
-		}
-	}
-	
-	/** Show a list of build statuses for project */
-	private void showBuildStatusList(final ArrayList<TeamCityBuilds> projectList){
-		ArrayList<String> myList = new ArrayList<String>();
-		Iterator<TeamCityBuilds> iterator = projectList.iterator();
-		while(iterator.hasNext()){
-			try {
-				SimpleDateFormat ISO8601DATEFORMAT = new SimpleDateFormat("yyyyMMdd'T'HHmmssZ", Locale.US);
-				Date dateString = ISO8601DATEFORMAT.parse(iterator.next().startDate);
-
-				myList.add(iterator.next().status + " - " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(dateString));
-			} catch (ParseException e) {
-				// TODO Auto-generated catch block
+				HttpClient httpClient = new DefaultHttpClient();
+				
+				((AbstractHttpClient) httpClient).getCredentialsProvider().setCredentials(
+						new AuthScope(targetHost.getHostName(),targetHost.getPort()), 
+						new UsernamePasswordCredentials(user,pass));
+				
+				
+				HttpGet httpGet = new HttpGet("http://"+url+ restPath);
+				HttpResponse httpResponse;
+				httpResponse = httpClient.execute(httpGet);
+				StringBuilder resp = inputStreamToString(httpResponse.getEntity().getContent());
+				
+				if(restPath.contains(RESTBUILDTYPEPATH)){
+					ArrayList<TeamCityBuilds> respXml = (ArrayList<TeamCityBuilds>) ParseXMLResponse(resp, new BuildsDataHandler());
+					new ShowBuildNames().execute(respXml);
+				}
+				else if(restPath.contains(RESTPROJECTSPATH)){
+					ArrayList<TeamCityProject> respXml = (ArrayList<TeamCityProject>) ParseXMLResponse(resp, new TCDataHandler());
+					new ShowProjectList().execute(respXml);
+				}else{
+					//gets you build name and status information
+					ArrayList<TeamCityBuilds> respXml = (ArrayList<TeamCityBuilds>) ParseXMLResponse(resp, new BuildsDataHandler());
+					new ShowBuildStatusList().execute(respXml);
+				}
+					
+			}catch (ClientProtocolException e){
 				e.printStackTrace();
+				showAlertDialog("Oh Oh! We are having trouble connecting to the server with those credentials! Please recheck your url, username and password.");		   
+			} catch (IOException e) {
+				e.printStackTrace();
+				showAlertDialog("Oh Oh! We are having trouble connecting to the server with those credentials! Please recheck your url, username and password.");
 			}
-
-			
-		}
-		if(myList.isEmpty())
-			myList.add("No Status for build!");
 		
-        ListView lv = new ListView(this);
-        lv.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,myList));
-        setContentView(lv);
 	}
 	
-	/** Show a list of build names for project */
-	private void showBuildNameList(final ArrayList<TeamCityBuilds> projectList){
-		ArrayList<String> myList = new ArrayList<String>();
-		Iterator<TeamCityBuilds> iterator = projectList.iterator();
-		while(iterator.hasNext()){
-			myList.add(iterator.next().buildName);
-		}
-		if(myList.isEmpty())
-			myList.add("No Builds for Project!");
-		
-        ListView lv = new ListView(this);
-        lv.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,myList));
-        setContentView(lv);
-        lv.setOnItemClickListener(new OnItemClickListener(){
-        	@Override
-			public void onItemClick(AdapterView<?> parent, View view, int pos, long id) {
-				getResponse(teamCityUrl.getText().toString().trim(),
-						teamCityUser.getText().toString().trim(),
-						teamCityPass.getText().toString(),
-						RESTBUILDSPATH+projectList.get(pos).buildId+"/builds");
-			}
-        	
-        });
-	}
-	
-	/** Show a list of projects from server */
-	private void showProjectList(final ArrayList<TeamCityProject> projectList){
-		ArrayList<String> myList = new ArrayList<String>();
-		Iterator<TeamCityProject> iterator = projectList.iterator();
-		while(iterator.hasNext()){
-			myList.add(iterator.next().projectName);
-		}
-		if(myList.isEmpty())
-			myList.add("No Projects!");
-        ListView lv = new ListView(this);
-        lv.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,myList));
-        setContentView(lv);
-        lv.setOnItemClickListener(new OnItemClickListener(){
-        	@Override
-			public void onItemClick(AdapterView<?> parent, View view, int pos, long id) {
-				Log.i("TeamCityActivity", projectList.get(pos).projectId);
-				getResponse(teamCityUrl.getText().toString().trim(),
-						teamCityUser.getText().toString().trim(),
-						teamCityPass.getText().toString(),
-						RESTBUILDTYPEPATH+projectList.get(pos).projectId);
-				
-			}
-        	
-        });
-	}
-
 	/** Parse response to get a list of available projects from the server
 	 * @return */
 	private ArrayList<?> ParseXMLResponse(StringBuilder response, IDataInterface myHandler){
@@ -241,6 +167,132 @@ public class TeamTrafficLightsActivity extends Activity {
 		 alertDialog.setMessage(message);
 		 alertDialog.show();
 	}
+	
+	private class ShowProjectList extends AsyncTask<ArrayList<TeamCityProject>,Void,ListView>{
+		private ProgressDialog xx = ProgressDialog.show(TeamTrafficLightsActivity.this, "Fetching...", "Getting Data from TeamCity Server");
+		
+		@Override
+		protected ListView doInBackground(ArrayList<TeamCityProject>... params) {
+			// TODO Auto-generated method stub
+			
+			final ArrayList<TeamCityProject> projectList = params[0];
+			ArrayList<String> myList = new ArrayList<String>();
+			Iterator<TeamCityProject> iterator = projectList.iterator();
+			while(iterator.hasNext()){
+				myList.add(iterator.next().projectName);
+			}
+			if(myList.isEmpty())
+				myList.add("No Projects!");
+			
+	        final ListView lv = new ListView(TeamTrafficLightsActivity.this);
+	        lv.setAdapter(new ArrayAdapter<String>(TeamTrafficLightsActivity.this,android.R.layout.simple_list_item_1,myList));
+	        
+	        lv.setOnItemClickListener(new OnItemClickListener(){
+	        	@Override
+				public void onItemClick(AdapterView<?> parent, View view, int pos, long id) {
+					
+					getResponse(teamCityUrl.getText().toString().trim(),
+							teamCityUser.getText().toString().trim(),
+							teamCityPass.getText().toString(),
+							RESTBUILDTYPEPATH+projectList.get(pos).projectId);
+					
+				}
+	        	
+	        });
+	        
+	        return lv;
+		}
+		protected void onPreExecute(){
+			xx.show();
+		}
+		protected void onPostExecute(ListView lv){
+			xx.dismiss();
+			setContentView(lv);
+		}
+		
+	}
+	
+	private class ShowBuildNames extends AsyncTask<ArrayList<TeamCityBuilds>,Void,ListView>{
+		private ProgressDialog xx = ProgressDialog.show(TeamTrafficLightsActivity.this, "Fetching...", "Getting Data from TeamCity Server");
+		
+		
+		protected void onPreExecute(){
+			xx.show();
+		}
+		protected void onPostExecute(ListView lv){
+			xx.dismiss();
+			setContentView(lv);
+		}
+		@Override
+		protected ListView doInBackground(ArrayList<TeamCityBuilds>... params) {
+			
+			final ArrayList<TeamCityBuilds> projectList = params[0];
+			ArrayList<String> myList = new ArrayList<String>();
+			Iterator<TeamCityBuilds> iterator = projectList.iterator();
+			while(iterator.hasNext()){
+				myList.add(iterator.next().buildName);
+			}
+			if(myList.isEmpty())
+				myList.add("No Builds for Project!");
+			
+	        final ListView lv = new ListView(TeamTrafficLightsActivity.this);
+	        lv.setAdapter(new ArrayAdapter<String>(TeamTrafficLightsActivity.this,android.R.layout.simple_list_item_1,myList));
+	       
+	        lv.setOnItemClickListener(new OnItemClickListener(){
+	        	@Override
+				public void onItemClick(AdapterView<?> parent, View view, int pos, long id) {
+					getResponse(teamCityUrl.getText().toString().trim(),
+							teamCityUser.getText().toString().trim(),
+							teamCityPass.getText().toString(),
+							RESTBUILDSPATH+projectList.get(pos).buildId+"/builds?count=10");
+				}
+	        	
+	        });
+	        return lv;
+		}
+		
+	}
+	
+	private class ShowBuildStatusList extends AsyncTask<ArrayList<TeamCityBuilds>,Void,ListView>{
+		private ProgressDialog xx = ProgressDialog.show(TeamTrafficLightsActivity.this, "Fetching...", "Getting Data from TeamCity Server");
+		
+		protected void onPreExecute(){
+			xx.show();
+		}
+		protected void onPostExecute(ListView lv){
+			xx.dismiss();
+			setContentView(lv);
+		}
+		@Override
+		protected ListView doInBackground(ArrayList<TeamCityBuilds>... params) {
+			final ArrayList<TeamCityBuilds> projectList = params[0];
+			ArrayList<String> myList = new ArrayList<String>();
+			Iterator<TeamCityBuilds> iterator = projectList.iterator();
+			while(iterator.hasNext()){
+				try {
+					TeamCityBuilds currBuild = iterator.next();
+					SimpleDateFormat ISO8601DATEFORMAT = new SimpleDateFormat("yyyyMMdd'T'HHmmssZ", Locale.US);
+					Date dateString = ISO8601DATEFORMAT.parse(currBuild.startDate);
+
+					myList.add(currBuild.status + " - " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(dateString));
+				} catch (ParseException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+				
+			}
+			if(myList.isEmpty())
+				myList.add("No Status for build!");
+			
+	        ListView lv = new ListView(TeamTrafficLightsActivity.this);
+	        lv.setAdapter(new ArrayAdapter<String>(TeamTrafficLightsActivity.this,android.R.layout.simple_list_item_1,myList));
+	        return lv;
+		}
+		
+		
+	}
+	
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
