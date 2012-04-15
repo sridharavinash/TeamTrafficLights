@@ -2,6 +2,9 @@ package com.sridharavinash.teamtrafficlights;
 
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -13,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Locale;
+import java.util.UUID;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -37,6 +41,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.InputMethodManager;
@@ -53,6 +58,10 @@ public class TeamTrafficLightsActivity extends Activity {
 	private final String RESTPROJECTSPATH="/httpAuth/app/rest/projects";
 	private final String RESTBUILDTYPEPATH=RESTPROJECTSPATH+"/id:";
 	private final String RESTBUILDSPATH = "/httpAuth/app/rest/buildTypes/id:";
+	private String encpass =null;
+	private String decpass = null;
+	String FILENAME  = "TeamCityCreds";
+	
 	EditText teamCityUrl;
 	EditText teamCityUser;
 	EditText teamCityPass;
@@ -64,10 +73,9 @@ public class TeamTrafficLightsActivity extends Activity {
 			InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
 			imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
 
-			//Get user input data
-			teamCityUrl = (EditText)findViewById(R.id.serverUrl);
-			teamCityUser = (EditText)findViewById(R.id.user);
-			teamCityPass = (EditText)findViewById(R.id.pass);
+			storeCreds(teamCityUrl.getText().toString().trim(),
+						teamCityUser.getText().toString().trim(),
+						teamCityPass.getText().toString());
 			
 			getResponse(teamCityUrl.getText().toString().trim(),
 						teamCityUser.getText().toString().trim(),
@@ -76,6 +84,40 @@ public class TeamTrafficLightsActivity extends Activity {
 		}
 	};
 	
+	private String retrieveCreds(){
+		int ch;
+	    StringBuffer strContent = new StringBuffer("");
+		try {
+			FileInputStream fin =openFileInput(FILENAME);
+			while( (ch = fin.read()) != -1)
+		        strContent.append((char)ch);
+			return strContent.toString();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return null;
+		} catch (IOException e){
+			e.printStackTrace();
+			return null;
+		}
+		
+
+	}
+	
+	private void storeCreds(String url,String user,String password){
+		try {
+			FileOutputStream fos =openFileOutput(FILENAME, Context.MODE_PRIVATE);
+			
+
+			encpass = SimpleCrypto.encrypt(SimpleCrypto.SEED, password);
+			String writeString = url+','+user+','+ encpass;
+			fos.write(writeString.getBytes());
+			fos.close();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 	/** Convenience function to convert inputstream(like HttpResponse) to a string */
 	private StringBuilder inputStreamToString(InputStream is) {
 	    String line = "";
@@ -298,6 +340,30 @@ public class TeamTrafficLightsActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
+		
+        //Get user input data
+        teamCityUrl = (EditText)findViewById(R.id.serverUrl);
+        teamCityUser = (EditText)findViewById(R.id.user);
+        teamCityPass = (EditText)findViewById(R.id.pass);
+      		
+        String storedCreds = retrieveCreds();
+		String [] storedCredsSplit= null;
+
+		if(storedCreds != null){
+			storedCredsSplit = storedCreds.split(",");
+			try {
+				decpass = SimpleCrypto.decrypt(SimpleCrypto.SEED, storedCredsSplit[2]);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			teamCityUrl.setText(storedCredsSplit[0].toString());
+			teamCityUser.setText(storedCredsSplit[1].toString());
+			teamCityPass.setText(decpass);
+			
+		}
+
+		
         Button connect = (Button)findViewById(R.id.Connect);
         connect.setOnClickListener(connectListener);
     }
