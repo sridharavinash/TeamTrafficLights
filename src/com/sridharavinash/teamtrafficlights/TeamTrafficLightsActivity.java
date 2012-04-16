@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Locale;
-import java.util.UUID;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -35,13 +34,14 @@ import org.xml.sax.ContentHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.InputMethodManager;
@@ -50,7 +50,10 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
 
 
 
@@ -118,6 +121,7 @@ public class TeamTrafficLightsActivity extends Activity {
 			e.printStackTrace();
 		}
 	}
+	
 	/** Convenience function to convert inputstream(like HttpResponse) to a string */
 	private StringBuilder inputStreamToString(InputStream is) {
 	    String line = "";
@@ -304,6 +308,9 @@ public class TeamTrafficLightsActivity extends Activity {
 		protected void onPostExecute(ListView lv){
 			xx.dismiss();
 			setContentView(lv);
+			
+			 
+			
 		}
 		@Override
 		protected ListView doInBackground(ArrayList<TeamCityBuilds>... params) {
@@ -316,7 +323,7 @@ public class TeamTrafficLightsActivity extends Activity {
 					SimpleDateFormat ISO8601DATEFORMAT = new SimpleDateFormat("yyyyMMdd'T'HHmmssZ", Locale.US);
 					Date dateString = ISO8601DATEFORMAT.parse(currBuild.startDate);
 
-					myList.add(currBuild.status + " - " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(dateString));
+					myList.add(currBuild.status + " \n " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(dateString));
 				} catch (ParseException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -326,9 +333,10 @@ public class TeamTrafficLightsActivity extends Activity {
 			}
 			if(myList.isEmpty())
 				myList.add("No Status for build!");
-			
 	        ListView lv = new ListView(TeamTrafficLightsActivity.this);
 	        lv.setAdapter(new ArrayAdapter<String>(TeamTrafficLightsActivity.this,android.R.layout.simple_list_item_1,myList));
+	        
+	       
 	        return lv;
 		}
 		
