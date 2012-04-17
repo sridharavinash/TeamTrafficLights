@@ -37,6 +37,7 @@ import org.xml.sax.XMLReader;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.ListActivity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
@@ -299,48 +300,46 @@ public class TeamTrafficLightsActivity extends Activity {
 		
 	}
 	
-	private class ShowBuildStatusList extends AsyncTask<ArrayList<TeamCityBuilds>,Void,ListView>{
+	
+	private class ShowBuildStatusList extends AsyncTask<ArrayList<TeamCityBuilds>,Void,ArrayList<TeamCityBuilds>>{
 		private ProgressDialog xx = ProgressDialog.show(TeamTrafficLightsActivity.this, "Fetching...", "Getting Data from TeamCity Server");
 		
 		protected void onPreExecute(){
 			xx.show();
 		}
-		protected void onPostExecute(ListView lv){
+		protected void onPostExecute(ArrayList<TeamCityBuilds> projlist){
 			xx.dismiss();
-			setContentView(lv);
-			
-			 
+			setContentView(R.layout.buildstatuslist);
+			ListView myList = (ListView) findViewById(R.id.listView1);
+		
+			myList.setAdapter(new BuildStatusAdapter(TeamTrafficLightsActivity.this,projlist));
 			
 		}
 		@Override
-		protected ListView doInBackground(ArrayList<TeamCityBuilds>... params) {
-			final ArrayList<TeamCityBuilds> projectList = params[0];
-			ArrayList<String> myList = new ArrayList<String>();
-			Iterator<TeamCityBuilds> iterator = projectList.iterator();
-			while(iterator.hasNext()){
+		protected ArrayList<TeamCityBuilds> doInBackground(ArrayList<TeamCityBuilds>... params) {
+			ArrayList<TeamCityBuilds> projectList = params[0];
+			int index = 0;
+			SimpleDateFormat ISO8601DATEFORMAT = new SimpleDateFormat("yyyyMMdd'T'HHmmssZ", Locale.US);
+			
+			for(TeamCityBuilds stats:projectList){
+				Date dateString;
 				try {
-					TeamCityBuilds currBuild = iterator.next();
-					SimpleDateFormat ISO8601DATEFORMAT = new SimpleDateFormat("yyyyMMdd'T'HHmmssZ", Locale.US);
-					Date dateString = ISO8601DATEFORMAT.parse(currBuild.startDate);
-
-					myList.add(currBuild.status + " \n " + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(dateString));
+					dateString = ISO8601DATEFORMAT.parse(stats.startDate);
+					stats.startDate = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(dateString);
+					
+					projectList.set(index, stats);
+					index+=1;
+					
 				} catch (ParseException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 
-				
+
 			}
-			if(myList.isEmpty())
-				myList.add("No Status for build!");
-	        ListView lv = new ListView(TeamTrafficLightsActivity.this);
-	        lv.setAdapter(new ArrayAdapter<String>(TeamTrafficLightsActivity.this,android.R.layout.simple_list_item_1,myList));
-	        
-	       
-	        return lv;
+			
+			return projectList;		
 		}
-		
-		
 	}
 	
     /** Called when the activity is first created. */
