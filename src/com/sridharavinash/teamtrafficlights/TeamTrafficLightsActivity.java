@@ -64,6 +64,7 @@ public class TeamTrafficLightsActivity extends Activity {
 	private final String RESTBUILDSPATH = "/httpAuth/app/rest/buildTypes/id:";
 	private String encpass =null;
 	private String decpass = null;
+	private SimpleDateFormat ISO8601DATEFORMAT;
 	String FILENAME  = "TeamCityCreds";
 	
 	EditText teamCityUrl;
@@ -319,7 +320,7 @@ public class TeamTrafficLightsActivity extends Activity {
 		protected ArrayList<TeamCityBuilds> doInBackground(ArrayList<TeamCityBuilds>... params) {
 			ArrayList<TeamCityBuilds> projectList = params[0];
 			int index = 0;
-			SimpleDateFormat ISO8601DATEFORMAT = new SimpleDateFormat("yyyyMMdd'T'HHmmssZ", Locale.US);
+			
 			
 			for(TeamCityBuilds stats:projectList){
 				Date dateString;
@@ -370,8 +371,23 @@ public class TeamTrafficLightsActivity extends Activity {
 			
 		}
 
+		ISO8601DATEFORMAT = new SimpleDateFormat("yyyyMMdd'T'HHmmssZ", Locale.US);
 		
         Button connect = (Button)findViewById(R.id.Connect);
         connect.setOnClickListener(connectListener);
+        
+        //Warming up date parser.
+        new Thread(new Runnable(){
+        	public void run(){
+        		try {
+    				//Warming up date parsing
+    				ISO8601DATEFORMAT.parse("20120416T174543-0400");
+    			} catch (ParseException e) {
+    				// TODO Auto-generated catch block
+    				e.printStackTrace();
+    			}
+        	}
+        }).start();
+        
     }
 }
